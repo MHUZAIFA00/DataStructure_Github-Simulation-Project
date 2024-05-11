@@ -167,7 +167,7 @@ Node* Repository::FindRepository(string name)    //search for repository
     }
     return NULL;
 }
-void Repository::ViewStats(string name)
+void Repository::ViewStats(string name)    //Set as public or private
 {
     Node* repo = FindRepository(name);
     if (repo != NULL)
