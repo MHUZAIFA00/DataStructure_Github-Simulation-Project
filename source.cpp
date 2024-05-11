@@ -147,7 +147,7 @@ void Repository::DeleteRepository(string name)
         }
     }
 }
-Node* Repository::FindRepository(string name)
+Node* Repository::FindRepository(string name)    //search for repository
 {
     Node* current = root;
     while (current != NULL)
