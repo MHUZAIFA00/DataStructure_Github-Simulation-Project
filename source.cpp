@@ -1,4 +1,9 @@
 #include "GitHub.h"
+User::User(string username, string password)
+{
+    this->username = username;
+    this->password = password;
+}
 Node::Node(string name, bool is_public) 
 {
     this->name = name;
@@ -13,52 +18,37 @@ Node::Node(string name, bool is_public)
 Repository::Repository()
 {
     root = NULL;
+    User_directory = " ";
 }
-void UserRepository::User_Registeration(string username, string password)
+void Repository::Register(string username, string password)
 {
-    User user1;
-    user1.username = username;
-    user1.password = password;
-    users.repositories.push_back(new Repository());
-    users.push_back(user1);
-    cout << "New User Registered!" << endl;
+    User new_user(username, password);
+    users[username] = new_user;
+    cout << "User registered successfully!" << endl;
 }
-bool UserRepository::Login(string username, string password)
+bool Repository::Login(string username, string password)
 {
-    for (int i = 0; i < users.size(); i++)
+    if (users.find(username) != users.end())
     {
-        if (users[i].username == username)
+        if (users[username].password == password)
         {
-            if (users[i].password == password)
-            {
-                cout << "User Login Successfully!" << endl;
-                return true;
-            }
+            User_directory = username;
+            cout << "Login successful!" << endl;
+            return true;
         }
         else
         {
-            cout << "Login Error!";
+            cout << "Invalid password." << endl;
             return false;
         }
     }
+    else
+    {
+        cout << "User not found." << endl;
+        return false;
+    }
 }
-//void UserRepository::Profile_view(string username)
-//{
-//    for (int i = 0; i < users.size(); i++)
-//    {
-//        if (users[i].username == username)
-//        {
-//            cout << "Username : " << users[i].username << endl;
-//            for (int j = 0; j < users[i].repositories.size(); j++) 
-//            {
-//                const Repository& repo = users[i].repositories[j]; 
-//                cout << "Repository : " << repo.name << endl;
-//            }
-//            return;
-//        }
-//    }
-//    cout << "User not found!"<<endl;
-//}
+
 void Repository::CreateRepository(string name, bool is_public, int num_files, int num_commits, int num_forks)
 {
     if (root == NULL)
@@ -107,6 +97,16 @@ void Repository::CreateRepository(string name, bool is_public, int num_files, in
             }
         }
     }
+    if (User_directory == " ")
+    {
+        User_directory = name;
+        string command = "mkdir" + User_directory;
+        system(command.c_str());
+
+    }
+    ofstream file(User_directory + "/" + name + ".txt");
+    file << "This is a new repository for " << name << ".";
+    file.close();
 }
 
 void Repository::DeleteRepository(string name)
@@ -343,85 +343,101 @@ void Repository::DeleteFile(string repo_name, string file_name)
         cout << "Repository not found." << endl;
     }
 }
-void Repository::display(string username)
+void Repository::display()
 {
 
-    string repo_name,fork_repo_name,file_name;
+    string repo_name,fork_repo_name,file_name,username,password;
     bool is_public;
     int choice;
     while (true)
     {
         cout << endl;
-        cout << "1. Create repository" << endl;
-        cout << "2. Delete repository" << endl;
-        cout << "3. Fork repository" << endl;
-        cout << "4. View stats" << endl;
-        cout << "5. Commit" << endl;
-        cout << "6. Set visibility" << endl;
-        cout << "7. Add file to repository" << endl;
-        cout << "8. Delete file from repository" << endl;
-        cout << "9. Profile view" << endl;
-        cout << "10.exit" << endl;
+        cout << "1.User Registration" << endl;
+        cout << "2.Login" << endl;
+        cout << "3. Create repository" << endl;
+        cout << "4. Delete repository" << endl;
+        cout << "5. Fork repository" << endl;
+        cout << "6. View stats" << endl;
+        cout << "7. Commit" << endl;
+        cout << "8. Set visibility" << endl;
+        cout << "9. Add file to repository" << endl;
+        cout << "10. Delete file from repository" << endl;
+        cout << "11.exit" << endl;
         cout << "Enter your choice: ";
         cin >> choice;
         cout << endl;
         switch (choice)
         {
         case 1:
+            cout << "Enter username: ";
+            cin >> username;
+            cout << "Enter password: ";
+            cin >> password;
+            Register(username, password);
+            break;
+        case 2:
+            cout << "Enter username: ";
+            cin >> username;
+            cout << "Enter password: ";
+            cin >> password;
+            if (Login(username, password))
+            {
+                cout << "Enter repository name: ";
+                cin >> repo_name;
+                CreateRepository(repo_name, true, 0, 0, 0);
+            }
+            break;
+        case 3:
             cout << "Enter repository name: ";
             cin >> repo_name;
             cout << "Enter repository status (1 for public, 0 for private): ";
             cin >> is_public;
             CreateRepository(repo_name, is_public, 0, 0, 0); // Assuming initial values 
             break;
-        case 2:
+        case 4:
             cout << "Enter repository name: ";
             cin >> repo_name;
             DeleteRepository(repo_name);
             break;
-        case 3:
+        case 5:
             cout << "Enter original repository name: ";
             cin >> repo_name;
             cout << "Enter copied repository name: ";
             cin >> fork_repo_name;
             ForkRepository(repo_name, fork_repo_name);
             break;
-        case 4:
+        case 6:
             cout << "Enter repository name: ";
             cin >> repo_name;
             ViewStats(repo_name);
             break;
-        case 5:
+        case 7:
             cout << "Enter repository name: ";
             cin >> repo_name;
             Commit(repo_name);
             break;
-        case 6:
+        case 8:
             cout << "Enter repository name: ";
             cin >> repo_name;
             cout << "Enter repository public status (1 for public, 0 for private): ";
             cin >> is_public;
             Set(repo_name, is_public);
             break;
-        case 7:
+        case 9:
             cout << "Enter repository name: ";
             cin >> repo_name;
             cout << "Enter file name: ";
             cin >> file_name;
             AddFile(repo_name, file_name);
             break;
-        case 8:
+        case 10:
             cout << "Enter repository name: ";
             cin >> repo_name;
             cout << "Enter file name: ";
             cin >> file_name;
             DeleteFile(repo_name, file_name);
             break;
-        case 9:
-            cout << "Enter Username : ";
-            cin >> username;
-           // Profile_view(username);
-        case 10:
+        case 11:
             WriteToCSV(); // Save repositories to CSV before exiting
             exit(0);
         default:
