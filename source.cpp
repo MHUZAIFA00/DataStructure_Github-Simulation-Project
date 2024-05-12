@@ -28,7 +28,7 @@ void Repository::Register(string username, string password)
     User new_user(username, password);
     users[username] = new_user;
 
-    ofstream userFile("Users.csv", ios::app);
+    ofstream userFile("Users.csv", ios::app);        //Save new user to User.csv
     if (userFile.is_open())
     {
         userFile << username << "," << password << endl;
@@ -43,7 +43,7 @@ void Repository::Register(string username, string password)
 }
 bool Repository::Login(string username, string password)
 {
-    ifstream userFile("Users.csv");
+    ifstream userFile("Users.csv");        //Match data from already register user
     if (userFile.is_open())
     {
         string line;
@@ -124,9 +124,6 @@ void Repository::CreateRepository(string name, bool is_public, int num_files, in
     if (User_directory == " ")
     {
         User_directory = name;
-        string command = "mkdir" + User_directory;
-        system(command.c_str());
-
     }
     ofstream file(User_directory + "/" + name + ".csv");
     file << "This is a new repository for " << name << ".";
@@ -286,7 +283,7 @@ Node* Repository::FindRepository(string name)    //search for repository
     }
     return NULL;
 }
-void Repository::ViewStats(string name)    //Set as public or private
+void Repository::ViewStats(string name)    //Set as public or private ,initialy set as private;
 {
     Node* repo = FindRepository(name);
     if (repo != NULL)
@@ -324,7 +321,7 @@ void Repository::Commit(string name)
     }
 }
 
-void Repository::Set(string name, bool is_public)
+void Repository::Set(string name, bool is_public)       // Update or set Repository status
 {
     Node* repo = FindRepository(name);
     if (repo != NULL)
