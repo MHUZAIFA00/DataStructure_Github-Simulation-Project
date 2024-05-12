@@ -1,5 +1,4 @@
 #pragma once
-
 #include <string>
 #include <fstream>
 #include <sstream>
@@ -7,6 +6,7 @@
 #include<vector>
 #include<map>
 using namespace std;
+class Repository;
 class Node
 {
 public:
@@ -25,7 +25,7 @@ class User
 {
 public:
     string username, password;
-    Repository rep;
+    User() : username(" "), password(" ") {};
     User(string username, string password);
 };
 class Repository

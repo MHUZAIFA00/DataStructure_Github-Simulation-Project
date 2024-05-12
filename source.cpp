@@ -1,4 +1,7 @@
 #include "GitHub.h"
+#include <fstream>
+#include <sstream>
+#include <iostream>
 User::User(string username, string password)
 {
     this->username = username;
@@ -24,29 +27,50 @@ void Repository::Register(string username, string password)
 {
     User new_user(username, password);
     users[username] = new_user;
+
+    ofstream userFile("Users.csv", ios::app);
+    if (userFile.is_open())
+    {
+        userFile << username << "," << password << endl;
+        userFile.close();
+    }
+    else
+    {
+        cout << "Unable to open user file";
+    }
+
     cout << "User registered successfully!" << endl;
 }
 bool Repository::Login(string username, string password)
 {
-    if (users.find(username) != users.end())
+    ifstream userFile("Users.csv");
+    if (userFile.is_open())
     {
-        if (users[username].password == password)
+        string line;
+        while (getline(userFile, line))
         {
-            User_directory = username;
-            cout << "Login successful!" << endl;
-            return true;
+            stringstream ss(line);
+            string storedUsername, storedPassword;
+            getline(ss, storedUsername, ',');
+            getline(ss, storedPassword, ',');
+
+            if (storedUsername == username && storedPassword == password)
+            {
+                User_directory = username;
+                cout << "Login successful!" << endl;
+                userFile.close();
+                return true;
+            }
         }
-        else
-        {
-            cout << "Invalid password." << endl;
-            return false;
-        }
+        userFile.close();
     }
     else
     {
-        cout << "User not found." << endl;
-        return false;
+        cout << "Unable to open user file";
     }
+
+    cout << "Invalid username or password!" << endl;
+    return false;
 }
 
 void Repository::CreateRepository(string name, bool is_public, int num_files, int num_commits, int num_forks)
@@ -104,7 +128,7 @@ void Repository::CreateRepository(string name, bool is_public, int num_files, in
         system(command.c_str());
 
     }
-    ofstream file(User_directory + "/" + name + ".txt");
+    ofstream file(User_directory + "/" + name + ".csv");
     file << "This is a new repository for " << name << ".";
     file.close();
 }
@@ -352,92 +376,71 @@ void Repository::display()
     while (true)
     {
         cout << endl;
-        cout << "1.User Registration" << endl;
-        cout << "2.Login" << endl;
-        cout << "3. Create repository" << endl;
-        cout << "4. Delete repository" << endl;
-        cout << "5. Fork repository" << endl;
-        cout << "6. View stats" << endl;
-        cout << "7. Commit" << endl;
-        cout << "8. Set visibility" << endl;
-        cout << "9. Add file to repository" << endl;
-        cout << "10. Delete file from repository" << endl;
-        cout << "11.exit" << endl;
+        cout << "1. Create repository" << endl;
+        cout << "2. Delete repository" << endl;
+        cout << "3. Fork repository" << endl;
+        cout << "4. View stats" << endl;
+        cout << "5. Commit" << endl;
+        cout << "6. Set visibility" << endl;
+        cout << "7. Add file to repository" << endl;
+        cout << "8. Delete file from repository" << endl;
+        cout << "9.exit" << endl;
         cout << "Enter your choice: ";
         cin >> choice;
         cout << endl;
         switch (choice)
         {
         case 1:
-            cout << "Enter username: ";
-            cin >> username;
-            cout << "Enter password: ";
-            cin >> password;
-            Register(username, password);
-            break;
-        case 2:
-            cout << "Enter username: ";
-            cin >> username;
-            cout << "Enter password: ";
-            cin >> password;
-            if (Login(username, password))
-            {
-                cout << "Enter repository name: ";
-                cin >> repo_name;
-                CreateRepository(repo_name, true, 0, 0, 0);
-            }
-            break;
-        case 3:
             cout << "Enter repository name: ";
             cin >> repo_name;
             cout << "Enter repository status (1 for public, 0 for private): ";
             cin >> is_public;
             CreateRepository(repo_name, is_public, 0, 0, 0); // Assuming initial values 
             break;
-        case 4:
+        case 2:
             cout << "Enter repository name: ";
             cin >> repo_name;
             DeleteRepository(repo_name);
             break;
-        case 5:
+        case 3:
             cout << "Enter original repository name: ";
             cin >> repo_name;
             cout << "Enter copied repository name: ";
             cin >> fork_repo_name;
             ForkRepository(repo_name, fork_repo_name);
             break;
-        case 6:
+        case 4:
             cout << "Enter repository name: ";
             cin >> repo_name;
             ViewStats(repo_name);
             break;
-        case 7:
+        case 5:
             cout << "Enter repository name: ";
             cin >> repo_name;
             Commit(repo_name);
             break;
-        case 8:
+        case 6:
             cout << "Enter repository name: ";
             cin >> repo_name;
             cout << "Enter repository public status (1 for public, 0 for private): ";
             cin >> is_public;
             Set(repo_name, is_public);
             break;
-        case 9:
+        case 7:
             cout << "Enter repository name: ";
             cin >> repo_name;
             cout << "Enter file name: ";
             cin >> file_name;
             AddFile(repo_name, file_name);
             break;
-        case 10:
+        case 8:
             cout << "Enter repository name: ";
             cin >> repo_name;
             cout << "Enter file name: ";
             cin >> file_name;
             DeleteFile(repo_name, file_name);
             break;
-        case 11:
+        case 9:
             WriteToCSV(); // Save repositories to CSV before exiting
             exit(0);
         default:
@@ -456,6 +459,20 @@ void Repository::WriteToCSV()
     else
     {
         cout << "Unable to open file";
+    }
+
+    ofstream userFile("Users.csv");
+    if (userFile.is_open())
+    {
+        for (auto& user : users)
+        {
+            userFile << user.first << "," << user.second.password << endl;
+        }
+        userFile.close();
+    }
+    else
+    {
+        cout << "Unable to open user file";
     }
 }
 
