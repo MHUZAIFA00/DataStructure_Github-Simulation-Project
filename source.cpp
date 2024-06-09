@@ -1,509 +1,538 @@
 #include "GitHub.h"
+#include <iostream>
 #include <fstream>
 #include <sstream>
-#include <iostream>
-User::User(string username, string password)
-{
-    this->username = username;
-    this->password = password;
-}
-Node::Node(string name, bool is_public) 
-{
-    this->name = name;
-    this->is_public = is_public;
-    num_files = 0;
-    num_commits = 0;
-    num_forks = 0;
-    parent = NULL;
-    left = NULL;
-    right = NULL;
-}
-Repository::Repository()
-{
-    root = NULL;
-    User_directory = " ";
-}
-void Repository::Register(string username, string password)
-{
-    User new_user(username, password);
-    users[username] = new_user;
+using namespace std;
 
-    ofstream userFile("Users.csv", ios::app);        //Save new user to User.csv
-    if (userFile.is_open())
-    {
-        userFile << username << "," << password << endl;
-        userFile.close();
-    }
-    else
-    {
-        cout << "Unable to open user file";
-    }
-
-    cout << "User registered successfully!" << endl;
-}
-bool Repository::Login(string username, string password)
-{
-    ifstream userFile("Users.csv");        //Match data from already register user
-    if (userFile.is_open())
-    {
-        string line;
-        while (getline(userFile, line))
-        {
-            stringstream ss(line);
-            string storedUsername, storedPassword;
-            getline(ss, storedUsername, ',');
-            getline(ss, storedPassword, ',');
-
-            if (storedUsername == username && storedPassword == password)
-            {
-                User_directory = username;
-                cout << "Login successful!" << endl;
-                userFile.close();
-                return true;
-            }
-        }
-        userFile.close();
-    }
-    else
-    {
-        cout << "Unable to open user file";
-    }
-
-    cout << "Invalid username or password!" << endl;
-    return false;
+commitNode::commitNode(string msg) {
+    commitMsg = msg;
+    next = nullptr;
 }
 
-void Repository::CreateRepository(string name, bool is_public, int num_files, int num_commits, int num_forks)
-{
-    if (root == NULL)
-    {
-        root = new Node(name, is_public);
-        root->num_files = num_files;
-        root->num_commits = num_commits;
-        root->num_forks = num_forks;
-    }
-    else
-    {
-        Node* current = root;
-        while (true)
-        {
-            if (name < current->name)
-            {
-                if (current->left == NULL)
-                {
-                    current->left = new Node(name, is_public);
-                    current->left->parent = current;
-                    current->left->num_files = num_files;
-                    current->left->num_commits = num_commits;
-                    current->left->num_forks = num_forks;
-                    break;
-                }
-                else
-                {
-                    current = current->left;
-                }
-            }
-            else
-            {
-                if (current->right == NULL)
-                {
-                    current->right = new Node(name, is_public);
-                    current->right->parent = current;
-                    current->right->num_files = num_files;
-                    current->right->num_commits = num_commits;
-                    current->right->num_forks = num_forks;
-                    break;
-                }
-                else
-                {
-                    current = current->right;
-                }
-            }
-        }
-    }
-    if (User_directory == " ")
-    {
-        User_directory = name;
-    }
-    ofstream file(User_directory + "/" + name + ".csv");
-    file << "This is a new repository for " << name << ".";
-    file.close();
+fileNode::fileNode(string name) {
+    fileName = name;
+    next = nullptr;
 }
 
-void Repository::DeleteRepository(string name)
-{
-    Node* current = root;
-    Node* parent = NULL;
-    while (current != NULL)
-    {
-        if (name < current->name)
-        {
-            parent = current;
-            current = current->left;
-        }
-        else if (name > current->name)
-        {
-            parent = current;
-            current = current->right;
-        }
-        else
-        {
-            if (current->left != NULL && current->right != NULL)
-            {
-                Node* min_right = current->right;
-                Node* min_right_parent = current;
+repositoryNode::repositoryNode(string name, bool isPublic) {
+    repositoryName = name;
+    this->isPublic = isPublic;
+    forkCount = 0;
+    commit = nullptr;
+    files = nullptr;
+    next = nullptr;
+}
 
-                while (min_right->left != NULL)
-                {
-                    min_right_parent = min_right;
-                    min_right = min_right->left;
-                }
+userNode::userNode(string name, string pass) {
+    userName = name;
+    password = pass;
+    repositories = nullptr;
+    followers = new userNode * [100];
+    following = new userNode * [100];
+    next = nullptr;
+    followingCount = 0;
+}
 
-                current->name = min_right->name;
-                current->is_public = min_right->is_public;
-                current->num_files = min_right->num_files;
-                current->num_commits = min_right->num_commits;
-                current->num_forks = min_right->num_forks;
-                if (min_right->parent == current)
-                {
-                    min_right_parent = current;
-                }
-                current = min_right;
-                current = current->right;
-                min_right_parent->left = current;
-            }
-            else
-            {
-                if (current->left != NULL)
-                {
-                    Node* child = current->left;
-                    if (parent == NULL)
-                    {
-                        root = child;
-                    }
-                    else if (parent->left == current)
-                    {
-                        parent->left = child;
-                    }
-                    else
-                    {
-                        parent->right = child;
-                    }
-                }
-                else
-                {
-                    Node* child = current->right;
-                    if (parent == NULL)
-                    {
-                        root = child;
-                    }
-                    else if (parent->left == current)
-                    {
-                        parent->left = child;
-                    }
-                    else {
-                        parent->right = child;
-                    }
-                }
-                delete current;
-                break;
-            }
-        }
-    }
+userNode::~userNode() {
+    delete[] followers;
+    delete[] following;
 }
-void Repository::ForkRepository(string original_repo_name,string forked_repo_name) 
-{
-    Node* original_repo = FindRepository(original_repo_name);
-    if (original_repo != NULL && original_repo->is_public) 
-    {
-        Node* forked_repo = new Node(forked_repo_name, true);
-        forked_repo->num_files = original_repo->num_files;
-        forked_repo->num_commits = original_repo->num_commits;
-        forked_repo->num_forks = 0;
-        forked_repo->files = original_repo->files;
-        if (root == NULL) 
-        {
-            root = forked_repo;
-        }
-        else 
-        {
-            Node* current = root;
-            while (true) 
-            {
-                if (forked_repo_name < current->name) 
-                {
-                    if (current->left == NULL)
-                    {
-                        current->left = forked_repo;
-                        current->left->parent = current;
-                        break;
-                    }
-                    else 
-                    {
-                        current = current->left;
-                    }
-                }
-                else 
-                {
-                    if (current->right == NULL) 
-                    {
-                        current->right = forked_repo;
-                        current->right->parent = current;
-                        break;
-                    }
-                    else {
-                        current = current->right;
-                    }
-                }
-            }
-        }
-    }
-    else 
-    {
-        cout << "Repository Not found!" << endl;
-    }
-}
-Node* Repository::FindRepository(string name)    //search for repository
-{
-    Node* current = root;
-    while (current != NULL)
-    {
-        if (name < current->name)
-        {
-            current = current->left;
-        }
-        else if (name > current->name)
-        {
-            current = current->right;
-        }
-        else
-        {
-            return current;
-        }
-    }
-    return NULL;
-}
-void Repository::ViewStats(string name)    //Set as public or private ,initialy set as private;
-{
-    Node* repo = FindRepository(name);
-    if (repo != NULL)
-    {
-        cout << "Repository name: " << repo->name << endl;
-        if (repo->is_public)
-        {
-            cout << "Public : yes"<<endl;
-        }
-        else
-        {
-            cout << "Public : No"<<endl;
-        }
-        
-        cout << "Number of files: " << repo->num_files << endl;
-        cout << "Number of commits: " << repo->num_commits << endl;
-        cout << "Number of forks: " << repo->num_forks << endl;
-    }
-    else
-    {
-        cout << "Repository not found" << endl;
+HashTable::HashTable() {
+    for (int i = 0; i < TABLE_SIZE; ++i) {
+        table[i] = nullptr;
     }
 }
 
-void Repository::Commit(string name)
-{
-    Node* repo = FindRepository(name);
-    if (repo != NULL)
-    {
-        repo->num_commits++;
-    }
-    else
-    {
-        cout << "Repository not found" << endl;
+HashTable::~HashTable() {
+    for (int i = 0; i < TABLE_SIZE; ++i) {
+        User* current = table[i];
+        while (current != nullptr) {
+            User* temp = current;
+            current = current->next;
+            delete temp;
+        }
     }
 }
 
-void Repository::Set(string name, bool is_public)       // Update or set Repository status
-{
-    Node* repo = FindRepository(name);
-    if (repo != NULL)
-    {
-        repo->is_public = is_public;
+int HashTable::hashFunction(const string& key) {
+    int hash = 0;
+    for (char c : key) {
+        hash = (hash + c) % TABLE_SIZE;
     }
-    else
-    {
-        cout << "Repository not found." << endl;
-    }
+    return hash;
 }
-void Repository::AddFile(string repo_name, string file_name)
-{
-    Node* repo = FindRepository(repo_name);
-    if (repo != NULL) 
-    {
-        repo->files.push_back(file_name);
-        repo->num_files++;
+
+void HashTable::insertUser(const string& username, const string& password) {
+    int hash = hashFunction(username);
+
+    User* newUser = new User(username, password);
+
+    if (table[hash] == nullptr) {
+        table[hash] = newUser;
     }
     else {
-        cout << "Repository not found." << endl;
+        newUser->next = table[hash];
+        table[hash] = newUser;
     }
 }
 
-void Repository::DeleteFile(string repo_name, string file_name)
-{
-    Node* repo = FindRepository(repo_name);
-    if (repo != NULL) {
-        auto it = find(repo->files.begin(), repo->files.end(), file_name);
-        if (it != repo->files.end()) 
-        {
-            repo->files.erase(it);
-            repo->num_files--;
+HashTable::User* HashTable::searchUser(const string& username) {
+    int hash = hashFunction(username);
+    User* user = table[hash];
+
+    while (user != nullptr) {
+        if (user->username == username) {
+            return user;
+        }
+        user = user->next;
+    }
+
+    return nullptr;
+}
+GitHub::GitHub() {
+    users = nullptr;
+    loggedInUser = nullptr;
+
+    readFromCSV();
+}
+
+GitHub::~GitHub() {
+    userNode* currentUser = users;
+    while (currentUser != nullptr) {
+        userNode* nextUser = currentUser->next;
+        deleteRepository(currentUser->repositories);
+        delete currentUser;
+        currentUser = nextUser;
+    }
+}
+
+void GitHub::registerUser() {
+    string username, password;
+    cout << "Enter username: ";
+    cin >> username;
+    cout << "Enter password: ";
+    cin >> password;
+
+    if (usersTable.searchUser(username) != nullptr) {
+        cout << "Username already exists. Please choose a different username.\n";
+        return;
+    }
+
+    usersTable.insertUser(username, password);
+
+    cout << "Registration successful!\n";
+}
+
+void GitHub::loginUser() {
+    string username, password;
+    cout << "Enter username: ";
+    cin >> username;
+    cout << "Enter password: ";
+    cin >> password;
+
+    HashTable::User* currentUser = usersTable.searchUser(username);
+    if (currentUser != nullptr && currentUser->passwordHash == password) {
+        cout << "Login successful!\n";
+    }
+    else {
+        cout << "Invalid username or password.\n";
+    }
+}
+
+void GitHub::logoutUser() {
+
+    cout << "User logged out successfully!" << endl;
+}
+
+void GitHub::viewUserProfile() {
+    string name;
+    cout << "Enter the username: ";
+    cin >> name;
+    userNode* currentUser = searchUser(name);
+    if (currentUser != nullptr) {
+        cout << "Username: " << currentUser->userName << endl;
+    }
+    else {
+        cout << "User not found!" << endl;
+    }
+}
+
+void GitHub::createRepository() {
+    string name, repoName;
+    char isPublic;
+    cout << "Enter the username: ";
+    cin >> name;
+    cout << "Enter the repository name: ";
+    cin >> repoName;
+    cout << "Is the repository public? (y/n): ";
+    cin >> isPublic;
+    bool visibility = (isPublic == 'y' || isPublic == 'Y');
+    userNode* currentUser = searchUser(name);
+    if (currentUser != nullptr) {
+        repositoryNode* newRepo = new repositoryNode(repoName, visibility);
+        newRepo->next = currentUser->repositories;
+        currentUser->repositories = newRepo;
+        writeToCSV();
+        cout << "Repository " << repoName << " created successfully!" << endl;
+    }
+    else {
+        cout << "User not found!" << endl;
+    }
+}
+
+void GitHub::deleteRepository() {
+    string userName, repoName;
+    cout << "Enter the username: ";
+    cin >> userName;
+    cout << "Enter the repository name: ";
+    cin >> repoName;
+    userNode* currentUser = searchUser(userName);
+    if (currentUser != nullptr) {
+        repositoryNode* prev = nullptr;
+        repositoryNode* currentRepo = currentUser->repositories;
+        while (currentRepo != nullptr && currentRepo->repositoryName != repoName) {
+            prev = currentRepo;
+            currentRepo = currentRepo->next;
+        }
+        if (currentRepo != nullptr) {
+            if (prev == nullptr) {
+                currentUser->repositories = currentRepo->next;
+            }
+            else {
+                prev->next = currentRepo->next;
+            }
+            deleteCommit(currentRepo->commit);
+            deleteFile(currentRepo->files);
+            delete currentRepo;
+            writeToCSV();
+            cout << "Repository " << repoName << " deleted successfully!" << endl;
         }
         else {
-            cout << "File not found in repository." << endl;
+            cout << "Repository " << repoName << " not found!" << endl;
         }
     }
     else {
-        cout << "Repository not found." << endl;
+        cout << "User not found!" << endl;
     }
 }
-void Repository::display()
-{
 
-    string repo_name,fork_repo_name,file_name,username,password;
-    bool is_public;
-    int choice;
-    while (true)
-    {
-        cout << endl;
-        cout << "1. Create repository" << endl;
-        cout << "2. Delete repository" << endl;
-        cout << "3. Fork repository" << endl;
-        cout << "4. View stats" << endl;
-        cout << "5. Commit" << endl;
-        cout << "6. Set visibility" << endl;
-        cout << "7. Add file to repository" << endl;
-        cout << "8. Delete file from repository" << endl;
-        cout << "9.exit" << endl;
-        cout << "Enter your choice: ";
-        cin >> choice;
-        cout << endl;
-        switch (choice)
-        {
-        case 1:
-            cout << "Enter repository name: ";
-            cin >> repo_name;
-            cout << "Enter repository status (1 for public, 0 for private): ";
-            cin >> is_public;
-            CreateRepository(repo_name, is_public, 0, 0, 0); // Assuming initial values 
-            break;
-        case 2:
-            cout << "Enter repository name: ";
-            cin >> repo_name;
-            DeleteRepository(repo_name);
-            break;
-        case 3:
-            cout << "Enter original repository name: ";
-            cin >> repo_name;
-            cout << "Enter copied repository name: ";
-            cin >> fork_repo_name;
-            ForkRepository(repo_name, fork_repo_name);
-            break;
-        case 4:
-            cout << "Enter repository name: ";
-            cin >> repo_name;
-            ViewStats(repo_name);
-            break;
-        case 5:
-            cout << "Enter repository name: ";
-            cin >> repo_name;
-            Commit(repo_name);
-            break;
-        case 6:
-            cout << "Enter repository name: ";
-            cin >> repo_name;
-            cout << "Enter repository public status (1 for public, 0 for private): ";
-            cin >> is_public;
-            Set(repo_name, is_public);
-            break;
-        case 7:
-            cout << "Enter repository name: ";
-            cin >> repo_name;
-            cout << "Enter file name: ";
-            cin >> file_name;
-            AddFile(repo_name, file_name);
-            break;
-        case 8:
-            cout << "Enter repository name: ";
-            cin >> repo_name;
-            cout << "Enter file name: ";
-            cin >> file_name;
-            DeleteFile(repo_name, file_name);
-            break;
-        case 9:
-            WriteToCSV(); // Save repositories to CSV before exiting
-            exit(0);
-        default:
-            cout << "Invalid choice" << endl;
+void GitHub::forkRepository() {
+    string sourceName, targetName, repoName;
+    cout << "Enter your username: ";
+    cin >> targetName;
+    cout << "Enter the username of the repository to fork: ";
+    cin >> sourceName;
+    cout << "Enter the repository name: ";
+    cin >> repoName;
+    userNode* sourceUser = searchUser(sourceName);
+    userNode* targetUser = searchUser(targetName);
+    if (sourceUser != nullptr && targetUser != nullptr) {
+        repositoryNode* sourceRepo = searchRepository(sourceUser->repositories, repoName);
+        if (sourceRepo != nullptr) {
+            repositoryNode* newRepo = new repositoryNode(repoName, sourceRepo->isPublic);
+            newRepo->next = targetUser->repositories;
+            targetUser->repositories = newRepo;
+            writeToCSV();
+            cout << "Repository " << repoName << " forked successfully!" << endl;
+        }
+        else {
+            cout << "Repository " << repoName << " not found!" << endl;
         }
     }
+    else {
+        cout << "Source user or target user not found!" << endl;
+    }
 }
-void Repository::WriteToCSV()
-{
-    ofstream file("Data.csv");
-    if (file.is_open())
-    {
-        WriteToCSVHelper(root, file);
-        file.close();
-    }
-    else
-    {
-        cout << "Unable to open file";
-    }
-
-    ofstream userFile("Users.csv");
-    if (userFile.is_open())
-    {
-        for (auto& user : users)
-        {
-            userFile << user.first << "," << user.second.password << endl;
+void GitHub::changeRepoVisibility() {
+    string userName, repoName;
+    char isPublic;
+    cout << "Enter the username: ";
+    cin >> userName;
+    cout << "Enter the repository name: ";
+    cin >> repoName;
+    cout << "Is the repository public? (y/n): ";
+    cin >> isPublic;
+    bool visibility = (isPublic == 'y' || isPublic == 'Y');
+    userNode* currentUser = searchUser(userName);
+    if (currentUser != nullptr) {
+        repositoryNode* currentRepo = searchRepository(currentUser->repositories, repoName);
+        if (currentRepo != nullptr) {
+            currentRepo->isPublic = visibility;
+            writeToCSV();
+            cout << "Repository visibility updated successfully!" << endl;
         }
-        userFile.close();
+        else {
+            cout << "Repository " << repoName << " not found!" << endl;
+        }
     }
-    else
-    {
-        cout << "Unable to open user file";
+    else {
+        cout << "User not found!" << endl;
     }
 }
 
-void Repository::WriteToCSVHelper(Node* node, ofstream& file) 
-{
-    if (node)
-    {
-        file << node->name << "," << node->is_public << "," << node->num_files << ","
-            << node->num_commits << "," << node->num_forks << endl;
-        WriteToCSVHelper(node->left, file);
-        WriteToCSVHelper(node->right, file);
+void GitHub::addCommit() {
+    string userName, repoName, commitMsg;
+    cout << "Enter your username: ";
+    cin >> userName;
+    cout << "Enter the repository name: ";
+    cin >> repoName;
+    cout << "Enter the commit message: ";
+    cin.ignore();
+    getline(cin, commitMsg);
+    userNode* currentUser = searchUser(userName);
+    if (currentUser != nullptr) {
+        repositoryNode* currentRepo = searchRepository(currentUser->repositories, repoName);
+        if (currentRepo != nullptr) {
+            commitNode* newCommit = new commitNode(commitMsg);
+            newCommit->next = currentRepo->commit;
+            currentRepo->commit = newCommit;
+            writeToCSV();
+            cout << "Commit added successfully!" << endl;
+        }
+        else {
+            cout << "Repository " << repoName << " not found!" << endl;
+        }
+    }
+    else {
+        cout << "User not found!" << endl;
     }
 }
-void Repository::ReadFromCSV()
-{
-    ifstream file("Data.csv");
-    if (file.is_open())
-    {
+
+void GitHub::addFile() {
+    string userName, repoName, fileName;
+    cout << "Enter your username: ";
+    cin >> userName;
+    cout << "Enter the repository name: ";
+    cin >> repoName;
+    cout << "Enter the file name: ";
+    cin >> fileName;
+    userNode* currentUser = searchUser(userName);
+    if (currentUser != nullptr) {
+        repositoryNode* currentRepo = searchRepository(currentUser->repositories, repoName);
+        if (currentRepo != nullptr) {
+            fileNode* newFile = new fileNode(fileName);
+            newFile->next = currentRepo->files;
+            currentRepo->files = newFile;
+            writeToCSV();
+            cout << "File added successfully!" << endl;
+        }
+        else {
+            cout << "Repository " << repoName << " not found!" << endl;
+        }
+    }
+    else {
+        cout << "User not found!" << endl;
+    }
+}
+
+void GitHub::deleteFile() {
+    string userName, repoName, fileName;
+    cout << "Enter your username: ";
+    cin >> userName;
+    cout << "Enter the repository name: ";
+    cin >> repoName;
+    cout << "Enter the file name: ";
+    cin >> fileName;
+    userNode* currentUser = searchUser(userName);
+    if (currentUser != nullptr) {
+        repositoryNode* currentRepo = searchRepository(currentUser->repositories, repoName);
+        if (currentRepo != nullptr) {
+            fileNode* prev = nullptr;
+            fileNode* currentFile = currentRepo->files;
+            while (currentFile != nullptr && currentFile->fileName != fileName) {
+                prev = currentFile;
+                currentFile = currentFile->next;
+            }
+            if (currentFile != nullptr) {
+                if (prev == nullptr) {
+                    currentRepo->files = currentFile->next;
+                }
+                else {
+                    prev->next = currentFile->next;
+                }
+                delete currentFile;
+                writeToCSV();
+                cout << "File " << fileName << " deleted successfully!" << endl;
+            }
+            else {
+                cout << "File " << fileName << " not found!" << endl;
+            }
+        }
+        else {
+            cout << "Repository " << repoName << " not found!" << endl;
+        }
+    }
+    else {
+        cout << "User not found!" << endl;
+    }
+}
+void GitHub::viewRepositoryStats() {
+    string userName, repoName;
+    cout << "Enter your username: ";
+    cin >> userName;
+    cout << "Enter the repository name: ";
+    cin >> repoName;
+    userNode* currentUser = searchUser(userName);
+    if (currentUser != nullptr) {
+        repositoryNode* currentRepo = searchRepository(currentUser->repositories, repoName);
+        if (currentRepo != nullptr) {
+            cout << "Repository Name: " << currentRepo->repositoryName << endl;
+            cout << "Visibility: " << (currentRepo->isPublic ? "Public" : "Private") << endl;
+            cout << "Number of forks: " << currentRepo->forkCount << endl;
+            commitNode* currentCommit = currentRepo->commit;
+            int commitCount = 0;
+            while (currentCommit != nullptr) {
+                commitCount++;
+                currentCommit = currentCommit->next;
+            }
+            cout << "Number of commits: " << commitCount << endl;
+            fileNode* currentFile = currentRepo->files;
+            int fileCount = 0;
+            while (currentFile != nullptr) {
+                fileCount++;
+                currentFile = currentFile->next;
+            }
+            cout << "Number of files: " << fileCount << endl;
+        }
+        else {
+            cout << "Repository " << repoName << " not found!" << endl;
+        }
+    }
+    else {
+        cout << "User not found!" << endl;
+    }
+}
+
+
+void GitHub::followUser() {
+    string follower, followed;
+    cout << "Enter the username of the follower: ";
+    cin >> follower;
+    cout << "Enter the username of the user to be followed: ";
+    cin >> followed;
+    if (graph.hasEdge(follower, followed)) {
+        cout << "User " << follower << " is already following " << followed << endl;
+    }
+    else {
+        graph.addEdge(follower, followed);
+        cout << "User " << follower << " is now following " << followed << endl;
+    }
+}
+
+void GitHub::unfollowUser() {
+    string follower, followed;
+    cout << "Enter the username of the follower: ";
+    cin >> follower;
+    cout << "Enter the username of the user to be unfollowed: ";
+    cin >> followed;
+    if (graph.hasEdge(follower, followed)) {
+        graph.removeEdge(follower, followed);
+        cout << "User " << follower << " is no longer following " << followed << endl;
+    }
+    else {
+        cout << "User " << follower << " is not following " << followed << endl;
+    }
+}
+void GitHub::writeToCSV() {
+    // Write user data to CSV file
+    ofstream outFile("users.csv");
+    if (outFile.is_open()) {
+        userNode* currentUser = users;
+        while (currentUser != nullptr) {
+            outFile << currentUser->userName << "," << currentUser->password << ",";
+            outFile << currentUser->followingCount << ",";
+            for (int i = 0; i < currentUser->followingCount; i++) {
+                outFile << currentUser->following[i]->userName << ",";
+            }
+            outFile << endl;
+            currentUser = currentUser->next;
+        }
+        outFile.close();
+    }
+    else {
+        cerr << "Error: Unable to open file for writing" << endl;
+    }
+}
+
+void GitHub::readFromCSV() {
+    // Read user data from CSV file
+    ifstream inFile("users.csv");
+    if (inFile.is_open()) {
         string line;
-        while (getline(file, line))
-        {
+        while (getline(inFile, line)) {
             stringstream ss(line);
-            string name, is_public, num_files, num_commits, num_forks;
-            getline(ss, name, ',');
-            getline(ss, is_public, ',');
-            getline(ss, num_files, ',');
-            getline(ss, num_commits, ',');
-            getline(ss, num_forks, ',');
-            CreateRepository(name, stoi(is_public), stoi(num_files), stoi(num_commits), stoi(num_forks));
+            string token;
+            getline(ss, token, ','); // username
+            string userName = token;
+            getline(ss, token, ','); // password
+            string password = token;
+            userNode* newUser = new userNode(userName, password);
+            getline(ss, token, ','); // following count
+            int followingCount = stoi(token);
+            for (int i = 0; i < followingCount; i++) {
+                getline(ss, token, ','); // followed user
+                userNode* followedUser = searchUser(token);
+                if (followedUser != nullptr) {
+                    newUser->following[newUser->followingCount++] = followedUser;
+                }
+            }
+            if (users == nullptr) {
+                users = newUser;
+            }
+            else {
+                newUser->next = users;
+                users = newUser;
+            }
         }
-        file.close();
+        inFile.close();
     }
-    else
-    {
-        cout << "Unable to open file";
+    else {
+        cerr << "Error: Unable to open file for reading" << endl;
+    }
+}
+userNode* GitHub::searchUser(string name) {
+    userNode* currentUser = users;
+    while (currentUser != nullptr) {
+        if (currentUser->userName == name) {
+            return currentUser;
+        }
+        currentUser = currentUser->next;
+    }
+    return nullptr;
+}
+
+repositoryNode* GitHub::searchRepository(repositoryNode* node, string name) {
+    while (node != nullptr) {
+        if (node->repositoryName == name) {
+            return node;
+        }
+        node = node->next;
+    }
+    return nullptr;
+}
+
+void GitHub::deleteCommit(commitNode* node) {
+    while (node != nullptr) {
+        commitNode* temp = node;
+        node = node->next;
+        delete temp;
+    }
+}
+
+void GitHub::deleteFile(fileNode* node) {
+    while (node != nullptr) {
+        fileNode* temp = node;
+        node = node->next;
+        delete temp;
+    }
+}
+
+void GitHub::deleteRepository(repositoryNode* node) {
+    while (node != nullptr) {
+        repositoryNode* temp = node;
+        node = node->next;
+        deleteCommit(temp->commit);
+        deleteFile(temp->files);
+        delete temp;
     }
 }
